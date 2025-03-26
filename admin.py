@@ -12,7 +12,7 @@ from db import *
 load_dotenv()
 
 API_TOKEN = os.getenv("ADMIN_API_TOKEN")
-ADMIN_ID = 288649486
+ADMIN_ID = 6597171902 #288649486
 
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
