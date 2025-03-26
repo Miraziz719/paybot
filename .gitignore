@@ -1,0 +1,35 @@
+# Python bo‘ylab umumiy qoidalar
+__pycache__/
+*.py[cod]
+*.swp
+*.swo
+*.log
+.DS_Store
+
+# Virtual muhit (venv, virtualenv)
+venv/
+env/
+*.venv/
+
+# OS spesifik fayllar
+*.exe
+*.dll
+*.so
+*.dylib
+
+# JetBrains (PyCharm) va VS Code fayllari
+.idea/
+.vscode/
+*.iml
+
+# `.env` fayli (maxfiy ma'lumotlar - tokenlar, parollar)
+.env
+*.env*
+
+# SQLite yoki boshqa vaqtinchalik ma'lumotlar bazasi fayllari
+*.db
+*.sqlite3
+
+# Cache va vaqtinchalik fayllar
+*.cache/
+*.pytest_cache/
