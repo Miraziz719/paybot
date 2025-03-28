@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS receipts (
     FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id) ON DELETE CASCADE
 );
 
+-- Sozlamalar
+CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1), -- Faqat 1 qator bo'lishi uchun
+    admin_id INTEGER DEFAULT 288649486,
+    card_number TEXT DEFAULT '0000 0000 0000 0000',
+    card_holder TEXT DEFAULT 'Unknown User'
+
 -- Indexlar
 CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_receipts_transaction ON receipts(transaction_id);

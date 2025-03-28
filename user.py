@@ -2,7 +2,6 @@ import os
 import asyncio
 import aiohttp
 import sqlite3
-from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
@@ -11,8 +10,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from admin import admin_transaction_info
-
-load_dotenv()
 
 API_TOKEN = os.getenv("USER_API_TOKEN")
 RECEIPT_FOLDER = "receipts"
@@ -110,7 +107,7 @@ async def process_phone_number(message: types.Message, state: FSMContext):
 async def start_payment(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("📌 ID raqamingizni kiriting (6 ta raqam):")
     await state.set_state(PaymentState.linebet_id)
-    await callback.answer() # yuklanishni tugatadi
+    await callback.answer()
 
 
 @router.message(PaymentState.linebet_id)
@@ -140,15 +137,21 @@ async def process_amount(message: types.Message, state: FSMContext):
     confirm_kb.button(text="❌ Bekor qilish", callback_data="cancel")
     confirm_kb.adjust(1)
 
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT card_number, card_holder FROM settings WHERE id = 1")
+    settings = cursor.fetchone()
+    conn.close()
+            
+    card_number, card_holder = settings
     await message.answer(
         f"🔔 To'lov tafsilotlari:\n"
         f"ID: {data['linebet_id']}\n"
         f"Summa: {amount} so'm\n"
-        "💳 Karta: 8600 1234 5678 9012\n"
-        "👤 Qabul qiluvchi: John Doe\n\n"
-        "To'lovni tasdiqlang:",
-        reply_markup=confirm_kb.as_markup()
+        f"💳 Karta: {card_number}\n"
+        f"👤 Qabul qiluvchi: {card_holder}"
     )
+    await message.answer("To'lovni tasdiqlang:", reply_markup=confirm_kb.as_markup())
     await state.update_data(amount=amount)
 
 
@@ -176,12 +179,15 @@ async def confirm_payment_handler(callback: types.CallbackQuery, state: FSMConte
 
         await state.update_data(transaction_id=transaction_id)
         msg = await callback.message.edit_text(
+            "📎 Iltimos, check rasm yoki PDF faylini yuboring."
             "⏳ Chekni 3 daqiqa ichida yuboring:",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📎 Chekni yuborish", callback_data=f"upload_receipt_{transaction_id}")],
-                [InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="cancel")]
+                [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel")]
             ])
         )
+
+        await state.update_data(transaction_id=transaction_id)
+        await state.set_state(PaymentState.waiting_for_receipt)
 
         if user_id in pending_timeouts:
             pending_timeouts[user_id].cancel()
@@ -215,6 +221,32 @@ async def process_timeout(message: types.Message, user_id: int, transaction_id: 
             del pending_timeouts[user_id]
 
 
+@router.callback_query(F.data == "cancel")
+async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()  # State ichidagi barcha ma'lumotlarni olish
+    transaction_id = data.get("transaction_id")  
+    user_id = callback.from_user.id
+   
+    try:
+        with sqlite3.connect("database.db", check_same_thread=False) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE transactions SET status = 'failed' WHERE transaction_id = ?",
+                (transaction_id,)
+            )
+            conn.commit()
+
+    except Exception as e:
+        print(f"Xabar yangilashda xato: {e}")
+
+    if user_id in pending_timeouts:
+        pending_timeouts[user_id].cancel()
+        del pending_timeouts[user_id]
+    await callback.message.edit_text("❌ Operatsiya bekor qilindi.", reply_markup=main_keyboard())
+    await state.clear()
+    await callback.answer()
+
+
 # 📌 SQLite bazaga rasm yo‘lini saqlash
 def save_receipt_path(transaction_id, file_id):
     with sqlite3.connect("database.db") as db:
@@ -231,17 +263,6 @@ def save_receipt_path(transaction_id, file_id):
         db.commit()
 
 
-# 📌 Rasmni yuklash komandasi
-@router.callback_query(lambda c: c.data.startswith("upload_receipt_"))
-async def handle_receipt_upload(callback: types.CallbackQuery, state: FSMContext):
-    transaction_id = int(callback.data.split("_")[-1])
-
-    await state.update_data(transaction_id=transaction_id)
-    await state.set_state(PaymentState.waiting_for_receipt)
-    
-    await callback.message.answer("📎 Iltimos, check rasm yoki PDF faylini yuboring.")
-
-
 # 📌 Rasmni qabul qilish va yo‘lini saqlash
 @router.message(StateFilter(PaymentState.waiting_for_receipt))
 async def receive_receipt(message: types.Message, state: FSMContext):
@@ -253,7 +274,7 @@ async def receive_receipt(message: types.Message, state: FSMContext):
     file_info = await bot.get_file(photo.file_id)
     data = await state.get_data()
     user_id = message.from_user.id
-    transaction_id = data["transaction_id"]  # Bu joyda tranzaksiya ID ni bazadan olish kerak
+    transaction_id = data["transaction_id"]
 
     file_path = os.path.join(RECEIPT_FOLDER, f"receipt_{transaction_id}.jpg")
 
@@ -293,30 +314,7 @@ async def receive_receipt(message: types.Message, state: FSMContext):
         print(f"Xabar yangilashda xato: {e}")
         
 
-@router.callback_query(F.data == "cancel")
-async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
-    data = await state.get_data()  # State ichidagi barcha ma'lumotlarni olish
-    transaction_id = data.get("transaction_id")  
-    user_id = callback.from_user.id
-   
-    try:
-        with sqlite3.connect("database.db", check_same_thread=False) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE transactions SET status = 'failed' WHERE transaction_id = ?",
-                (transaction_id,)
-            )
-            conn.commit()
 
-    except Exception as e:
-        print(f"Xabar yangilashda xato: {e}")
-
-    if user_id in pending_timeouts:
-        pending_timeouts[user_id].cancel()
-        del pending_timeouts[user_id]
-    await callback.message.edit_text("❌ Operatsiya bekor qilindi.", reply_markup=main_keyboard())
-    await state.clear()
-    await callback.answer()
 
 
 

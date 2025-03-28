@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -9,10 +8,10 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeybo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from db import *
 
-load_dotenv()
 
 API_TOKEN = os.getenv("ADMIN_API_TOKEN")
-ADMIN_ID = 6597171902 #288649486
+# ADMIN_ID = 288649486  #Miraziz
+# ADMIN_ID = 6597171902 #Demir
 
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
@@ -20,13 +19,19 @@ dp = Dispatcher(storage=storage)
 router = Router()
 dp.include_router(router)
 
+# ✅ Komandalarni botga o‘rnatish
+async def set_commands():
+    commands = [
+        types.BotCommand(command="start", description="Botni ishga tushirish"),
+        types.BotCommand(command="change_admin", description="Adminni o'zgartirish"),
+        types.BotCommand(command="change_card", description="Karta o'zgartirish"),
+        types.BotCommand(command="transaction", description="Tranzaksiyani ko'rish"),
+    ]
+    await bot.set_my_commands(commands)
 
-class PaymentState(StatesGroup):
-    linebet_id = State()
-    amount = State()
-    withdraw_amount = State()
-    withdraw_id = State()
-    phone_number = State()
+class ChangeCardState(StatesGroup):
+    waiting_for_card_number = State()
+    waiting_for_card_holder = State()
 
 
 
@@ -34,6 +39,7 @@ async def admin_transaction_info(transaction_id: int):
     """Berilgan tranzaksiya ID bo‘yicha ma'lumotni admin botga yuborish"""
     conn = sqlite3.connect("database.db")
     cursor = conn.cursor()
+    admin_id = get_admin_id()
 
     cursor.execute("""
         SELECT 
@@ -54,7 +60,7 @@ async def admin_transaction_info(transaction_id: int):
     conn.close()
 
     if not transaction:
-        return await bot.send_message(ADMIN_ID, f"⚠ Tranzaksiya `{transaction_id}` topilmadi.")
+        return await bot.send_message(admin_id, f"⚠ Tranzaksiya `{transaction_id}` topilmadi.")
 
     transaction_id, user_id, amount, trx_type, status, details, created_at, file_id, verified = transaction
 
@@ -63,10 +69,8 @@ async def admin_transaction_info(transaction_id: int):
         f"👤 *Foydalanuvchi:* `{user_id}`\n"
         f"💰 *Summasi:* `{amount}` so‘m\n"
         f"🔄 *Turi:* `{trx_type}`\n"
-        f"📊 *Status:* `{status}`\n"
         f"📝 *Izoh:* `{details or 'Yo‘q'}`\n"
         f"📅 *Sana:* `{created_at}`\n"
-        f"✅ *Tasdiqlangan:* {'Ha' if verified else 'Yo‘q'}"
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -78,9 +82,9 @@ async def admin_transaction_info(transaction_id: int):
 
     if file_id and os.path.exists(file_id):
         photo = FSInputFile(file_id)
-        await bot.send_photo(chat_id=ADMIN_ID, photo=photo, caption=caption, parse_mode="Markdown", reply_markup=keyboard)
+        await bot.send_photo(chat_id=admin_id, photo=photo, caption=caption, parse_mode="Markdown", reply_markup=keyboard)
     else:
-        await bot.send_message(ADMIN_ID, caption, parse_mode="Markdown", reply_markup=keyboard)
+        await bot.send_message(admin_id, caption, parse_mode="Markdown", reply_markup=keyboard)
 
 
 @router.callback_query(lambda c: c.data.startswith("approve_"))
@@ -101,8 +105,15 @@ async def approve_receipt(callback: CallbackQuery):
     conn.commit()
     conn.close()
 
-    await callback.answer("✅ Check tasdiqlandi!", show_alert=True)
-    await bot.send_message(ADMIN_ID, f"✅ Check #{transaction_id} tasdiqlandi!")
+    # await callback.answer("✅ Check tasdiqlandi!", show_alert=True)
+    new_caption = callback.message.caption + "\n✅ Tasdiqlandi!"
+    await bot.edit_message_caption(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        caption=new_caption,
+        parse_mode="Markdown",
+        reply_markup=None  # Tugmalarni olib tashlash
+    )
 
     from user import bot as userBot
     await userBot.send_message(user_id, f"✅ Sizning to'lovingiz tasdiqlandi\n📌 Check ID: {transaction_id}")
@@ -122,18 +133,30 @@ async def reject_receipt(callback: CallbackQuery):
     conn.commit()
     conn.close()
 
-    await callback.answer("❌ Check bekor qilindi!", show_alert=True)
-    await bot.send_message(ADMIN_ID, f"❌ Check #{transaction_id} bekor qilindi!")
+    # await callback.answer("❌ Check bekor qilindi!", show_alert=True)
+    new_caption = callback.message.caption + "\n❌ Bekor qilindi!"
+    await bot.edit_message_caption(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        caption=new_caption,
+        parse_mode="Markdown",
+        reply_markup=None  # Tugmalarni olib tashlash
+    )
 
     from user import bot as userBot
     await userBot.send_message(user_id, f"❌ Sizning to'lovingiz bekor qilindi!\n📌 Check ID: {transaction_id}")
 
 
 
-@router.message(Command("admin_transaction"))
+@router.message(Command("transaction"))
 async def handle_admin_transaction(message: types.Message, command: CommandObject, bot: Bot):
+    admin_id = get_admin_id()
+    if message.from_user.id != admin_id:
+        await message.answer("❌ Siz admin emassiz!")
+        return
+    
     if not command.args:
-        return await message.answer("❗ Iltimos, tranzaksiya ID ni kiriting.\n\nMisol: `/admin_transaction 123`")
+        return await message.answer("❗ Iltimos, tranzaksiya ID ni kiriting.\n\nMisol: `/transaction 123`")
 
     try:
         transaction_id = int(command.args)
@@ -146,17 +169,76 @@ async def handle_admin_transaction(message: types.Message, command: CommandObjec
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+    admin_id = get_admin_id()
 
-    if user_id == ADMIN_ID:
-        try:
-            await message.answer("🏠 Bosh menyu")
-        except Exception as e:
-            await message.answer(f"⚠️ Xatolik: {str(e)}")
+    if user_id == admin_id:
+        await message.answer("✅ Siz admin sifatida tolovlarni qabul qilishingiz mumkun")
     else:
         await message.answer("⛔ Siz admin sifatida topilmadingiz!")
 
 
+@router.message(Command("change_admin"))
+async def change_admin_handler(message: types.Message):
+    """Admin ID ni o'zgartirish komandasi"""
+    admin_id = get_admin_id()
+    if message.from_user.id != admin_id:
+        await message.answer("❌ Siz admin emassiz!")
+        return
+
+    args = message.text.split()
+    if len(args) < 2 or not args[1].isdigit():
+        await message.answer("⚠️ Foydalanish: /change_admin <yangi_admin_id>")
+        return
+
+    new_admin_id = int(args[1])
+    update_admin_id(new_admin_id)
+    
+    await message.answer(f"✅ Admin ID {new_admin_id} ga o‘zgartirildi!")
+
+
+@router.message(Command("change_card"))
+async def change_card_start(message: types.Message, state: FSMContext):
+    """Admin karta ma'lumotlarini o'zgartirishni boshlaydi"""
+    admin_id = get_admin_id()
+    if message.from_user.id != admin_id:
+        await message.answer("❌ Siz admin emassiz!")
+        return
+
+    await message.answer("💳 Yangi karta raqamini kiriting (masalan: 8600 1234 5678 9012):")
+    await state.set_state(ChangeCardState.waiting_for_card_number)
+
+
+@router.message(ChangeCardState.waiting_for_card_number)
+async def process_card_number(message: types.Message, state: FSMContext):
+    """Yangi karta raqamini olish"""
+    new_card_number = message.text
+
+    if len(new_card_number) != 19 or not new_card_number.replace(" ", "").isdigit():
+        await message.answer("❌ Noto'g'ri format! Karta raqami 16 ta raqam va bo'shliqlar bilan bo‘lishi kerak.")
+        return
+
+    await state.update_data(card_number=new_card_number)
+    await message.answer("👤 Karta egasining ismini kiriting (masalan: John Doe):")
+    await state.set_state(ChangeCardState.waiting_for_card_holder)
+
+
+@router.message(ChangeCardState.waiting_for_card_holder)
+async def process_card_holder(message: types.Message, state: FSMContext):
+    """Yangi karta egasining ismini olish"""
+    new_card_holder = message.text
+
+    data = await state.get_data()
+    new_card_number = data["card_number"]
+
+    update_card_details(new_card_number, new_card_holder)
+
+    await message.answer(f"✅ Karta ma'lumotlari yangilandi!\n💳 {new_card_number}\n👤 {new_card_holder}")
+    await state.clear()  # State-ni tugatish
+
+
+
 async def start_admin_bot():
     print("Admin bot ishga tushdi!")
+    await set_commands()
     await dp.start_polling(bot)
 

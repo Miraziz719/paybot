@@ -3,6 +3,8 @@ import os
 from admin import start_admin_bot
 from user import start_user_bot
 from db import init_db
+from dotenv import load_dotenv
+load_dotenv()
 
 
 # 📂 Rasm saqlanadigan papka
