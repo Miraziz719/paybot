@@ -67,7 +67,7 @@ async def admin_transaction_info(transaction_id: int):
     caption = (
         f"📌 *Tranzaksiya ID:* `{transaction_id}`\n"
         f"👤 *Foydalanuvchi:* `{user_id}`\n"
-        f"💰 *Summasi:* `{amount}` so‘m\n"
+        f"💰 *Summasi:* `{amount:,.0f}` so‘m\n"
         f"🔄 *Turi:* `{trx_type}`\n"
         f"📝 *Izoh:* `{details or 'Yo‘q'}`\n"
         f"📅 *Sana:* `{created_at}`\n"
@@ -96,27 +96,74 @@ async def approve_receipt(callback: CallbackQuery):
     conn = sqlite3.connect("database.db")
     cursor = conn.cursor()
 
-    # Chekni tasdiqlash (verified = TRUE)
-    cursor.execute("UPDATE receipts SET verified = TRUE WHERE transaction_id = ?", (transaction_id,))
-    cursor.execute(
-        "UPDATE users SET balance = balance + (SELECT amount FROM transactions WHERE transaction_id = ?) WHERE user_id = ?",
-        (transaction_id, user_id)
-    )
-    conn.commit()
-    conn.close()
+    # Tranzaksiya turini olish
+    cursor.execute("SELECT type FROM transactions WHERE transaction_id = ?", (transaction_id,))
+    transaction = cursor.fetchone()
 
-    # await callback.answer("✅ Check tasdiqlandi!", show_alert=True)
-    new_caption = callback.message.caption + "\n✅ Tasdiqlandi!"
-    await bot.edit_message_caption(
-        chat_id=callback.message.chat.id,
-        message_id=callback.message.message_id,
-        caption=new_caption,
-        parse_mode="Markdown",
-        reply_markup=None  # Tugmalarni olib tashlash
-    )
+    if not transaction:
+        await callback.answer("⚠️ Tranzaksiya topilmadi!", show_alert=True)
+        return
 
-    from user import bot as userBot
-    await userBot.send_message(user_id, f"✅ Sizning to'lovingiz tasdiqlandi\n📌 Check ID: {transaction_id}")
+
+    transaction_type = transaction[0]
+
+
+    if transaction_type == 'deposit':
+        # Chekni tasdiqlash (verified = TRUE)
+        cursor.execute("UPDATE receipts SET verified = TRUE WHERE transaction_id = ?", (transaction_id,))
+        cursor.execute(
+            """
+            UPDATE users 
+            SET balance = balance + (SELECT amount FROM transactions WHERE transaction_id = ?) 
+            WHERE user_id = ?
+            """,
+            (transaction_id, user_id)
+        )
+        cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        user_balance = cursor.fetchone()
+        user_balance = user_balance[0] if user_balance else 0 
+        conn.commit()
+        conn.close()
+
+        # await callback.answer("✅ Check tasdiqlandi!", show_alert=True)
+        new_caption = callback.message.caption + "\n✅ Tasdiqlandi!"
+        await bot.edit_message_caption(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            caption=new_caption,
+            parse_mode="Markdown",
+            reply_markup=None  # Tugmalarni olib tashlash
+        )
+
+        from user import bot as userBot
+        await userBot.send_message(user_id, (
+            f"✅ Sizning to'lovingiz tasdiqlandi\n"
+            f"📌 Check ID: {transaction_id}\n"
+            f"💰 Hisobingizda {user_balance:,.0f} so'm\n"
+        ))
+    
+    else:
+        cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        user_balance = cursor.fetchone()[0]
+        conn.commit()
+        conn.close()
+
+        # await callback.answer("✅ Check tasdiqlandi!", show_alert=True)
+        new_text = callback.message.text + "\n✅ Tasdiqlandi!"
+        await bot.edit_message_text(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            text=new_text,
+            parse_mode="Markdown",
+            reply_markup=None  # Tugmalarni olib tashlash
+        )
+
+        from user import bot as userBot
+        await userBot.send_message(user_id, (
+            f"✅ Sizning so'rovingiz tasdiqlandi\n"
+            f"📌 Tranzaksiya ID: {transaction_id}\n"
+            f"💰 Hisobingizda {user_balance:,.0f} so'm\n"
+        ))
 
 
 @router.callback_query(lambda c: c.data.startswith("reject_"))
@@ -128,23 +175,67 @@ async def reject_receipt(callback: CallbackQuery):
     conn = sqlite3.connect("database.db")
     cursor = conn.cursor()
 
-    # Chekni rad etish (verified = FALSE)
-    cursor.execute("UPDATE receipts SET verified = FALSE WHERE transaction_id = ?", (transaction_id,))
-    conn.commit()
-    conn.close()
+    # Tranzaksiya turini olish
+    cursor.execute("SELECT type FROM transactions WHERE transaction_id = ?", (transaction_id,))
+    transaction = cursor.fetchone()
 
-    # await callback.answer("❌ Check bekor qilindi!", show_alert=True)
-    new_caption = callback.message.caption + "\n❌ Bekor qilindi!"
-    await bot.edit_message_caption(
-        chat_id=callback.message.chat.id,
-        message_id=callback.message.message_id,
-        caption=new_caption,
-        parse_mode="Markdown",
-        reply_markup=None  # Tugmalarni olib tashlash
-    )
+    if not transaction:
+        await callback.answer("⚠️ Tranzaksiya topilmadi!", show_alert=True)
+        return
 
-    from user import bot as userBot
-    await userBot.send_message(user_id, f"❌ Sizning to'lovingiz bekor qilindi!\n📌 Check ID: {transaction_id}")
+    transaction_type = transaction[0]
+
+    if transaction_type == 'deposit':
+        # Chekni rad etish (verified = FALSE)
+        cursor.execute("UPDATE receipts SET verified = FALSE WHERE transaction_id = ?", (transaction_id,))
+        conn.commit()
+        conn.close()
+
+        # await callback.answer("❌ Check bekor qilindi!", show_alert=True)
+        new_caption = callback.message.caption + "\n❌ Bekor qilindi!"
+        await bot.edit_message_caption(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            caption=new_caption,
+            parse_mode="Markdown",
+            reply_markup=None  # Tugmalarni olib tashlash
+        )
+
+        from user import bot as userBot
+        await userBot.send_message(user_id, f"❌ Sizning to'lovingiz bekor qilindi!\n📌 Check ID: {transaction_id}")
+    
+    else:
+        cursor.execute(
+            """
+            UPDATE users 
+            SET balance = balance + (SELECT amount FROM transactions WHERE transaction_id = ?) 
+            WHERE user_id = ?
+            """,
+            (transaction_id, user_id)
+        )
+        cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        user_balance = cursor.fetchone()
+        user_balance = user_balance[0] if user_balance else 0 
+
+        conn.commit()
+        conn.close()
+
+        # await callback.answer("❌ Check bekor qilindi!", show_alert=True)
+        new_text = callback.message.text + "\n❌ Bekor qilindi!"
+        await bot.edit_message_text(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            text=new_text,
+            parse_mode="Markdown",
+            reply_markup=None  # Tugmalarni olib tashlash
+        )
+
+        from user import bot as userBot
+        await userBot.send_message(user_id, (
+            f"❌ Sizning so'rovingiz bekor qilindi!\n"
+            f"📌 Tranzaksiya ID: {transaction_id}\n"
+            f"💰 Hisobingizda {user_balance:,.0f} so'm\n"
+        ))
 
 
 
