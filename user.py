@@ -15,6 +15,7 @@ from handlers import format_card_number
 API_TOKEN = os.getenv("USER_API_TOKEN")
 RECEIPT_FOLDER = "receipts"
 CHANNEL_ID = -1002604541411
+CHANNEL_DI = -1002375805009
 
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
