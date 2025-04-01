@@ -42,7 +42,7 @@ def init_db():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1), -- Faqat 1 qator bo'lishi uchun
-                admin_id INTEGER DEFAULT 288649486,
+                admin_id INTEGER DEFAULT 6597171902,
                 card_number TEXT DEFAULT '0000 0000 0000 0000',
                 card_holder TEXT DEFAULT 'Unknown User'
             )

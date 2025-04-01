@@ -6,6 +6,9 @@ __pycache__/
 *.log
 .DS_Store
 
+# picture folder
+receipts/
+
 # Virtual muhit (venv, virtualenv)
 venv/
 env/
