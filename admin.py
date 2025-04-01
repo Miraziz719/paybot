@@ -9,7 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from db import *
 # Demirdan cmment
 
-API_TOKEN = os.getenv("6597171902 ")
+API_TOKEN = os.getenv(API_TOKEN)
 # ADMIN_ID = 288649486  #Miraziz
 # ADMIN_ID = 6597171902 #Demir
 
