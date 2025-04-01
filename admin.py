@@ -7,9 +7,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from db import *
-# Demirdan cmment
 
-API_TOKEN = os.getenv(API_TOKEN)
+API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 # ADMIN_ID = 288649486  #Miraziz
 # ADMIN_ID = 6597171902 #Demir
 
@@ -57,12 +56,15 @@ async def admin_transaction_info(transaction_id: int):
         WHERE t.transaction_id = ?;
     """, (transaction_id,))
     transaction = cursor.fetchone()
+    cursor.execute("SELECT balance, phone_number FROM users WHERE user_id = ?", (transaction[1],))
+    user = cursor.fetchone()
     conn.close()
 
     if not transaction:
         return await bot.send_message(admin_id, f"⚠ Tranzaksiya `{transaction_id}` topilmadi.")
 
     transaction_id, user_id, amount, trx_type, status, details, created_at, file_id, verified = transaction
+    balance, phone_number = user
 
     caption = (
         f"📌 *Tranzaksiya ID:* `{transaction_id}`\n"
