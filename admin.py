@@ -7,7 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from db import *
-
+# Demirdan cmment
 
 API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 # ADMIN_ID = 288649486  #Miraziz
