@@ -53,10 +53,20 @@ def contact_keyboard():
         one_time_keyboard=True
     )
 
+def start_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="/Start")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
 
 def check_membership_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url="https://t.me/UZB_WINS")],
             [InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url="https://t.me/+ykoJOOeJ40Y4MjVi")],
             [InlineKeyboardButton(text="✅ A'zo bo'ldim", callback_data="check_membership")]
         ]
