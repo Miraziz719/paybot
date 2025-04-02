@@ -7,7 +7,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, \
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, 
     ReplyKeyboardRemove, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from admin import admin_transaction_info
@@ -93,22 +93,24 @@ def check_membership_keyboard():
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    channel = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
-
-    if not  channel.status == 'left':
+    
+    # First check channel membership
+    is_member = await check_user_membership(user_id)
+    
+    if not is_member:
         await message.answer("🔹 Botdan foydalanish uchun avval kanalga a'zo bo'ling!",
                            reply_markup=check_membership_keyboard())
         return
-
+    
+    # If user is member, then check if registered
     try:
         with sqlite3.connect("database.db", check_same_thread=False) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT phone_number FROM users WHERE user_id = ?", (user_id,))
             user_data = cursor.fetchone()
             
-
-            if user_data and user_data[0]:  # Agar foydalanuvchi ro'yxatdan o'tgan bo'lsa
-                await message.answer("🏠 Bosh menyu", reply_markup=start_keyboard())  # O'zgartirildi
+            if user_data and user_data[0]:  # If user is already registered
+                await message.answer("🏠 Bosh menyu", reply_markup=start_keyboard())
             else:
                 await message.answer(
                     "⚠️ Faqat 🇺🇿 O'zbekiston raqami orqali ro'yxatdan o'tish mumkin!\n\n"
