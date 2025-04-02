@@ -68,7 +68,7 @@ async def admin_transaction_info(transaction_id: int):
 
     caption = (
         f"📌 *Tranzaksiya ID:* `{transaction_id}`\n"
-        f"👤 *Foydalanuvchi:* `{user_id}`\n"
+        f"👤 *Foydalanuvchi:* [{user_id}](tg://user?id={user_id})\n"
         f"💰 *Summasi:* `{amount:,.0f}` so‘m\n"
         f"🔄 *Turi:* `{trx_type}`\n"
         f"📝 *Izoh:* `{details or 'Yo‘q'}`\n"

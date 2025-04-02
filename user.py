@@ -75,6 +75,19 @@ def check_membership_keyboard():
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
+
+    # user_id = message.from_user.id
+    # username = message.from_user.username
+    # first_name = message.from_user.first_name
+
+    # profile_link1 = f"[@{username}](https://t.me/{username})"
+    # profile_link2 = f"[{first_name}](tg://user?id={user_id})"
+
+    # await message.reply(f"Sizning profil havolangiz: {profile_link1}", parse_mode="Markdown")
+    # await message.reply(f"Sizning profil havolangiz: {profile_link2}", parse_mode="Markdown")
+
+
+
     user_id = message.from_user.id
     channel = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
 
