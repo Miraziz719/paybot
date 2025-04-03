@@ -107,9 +107,7 @@ async def approve_receipt(callback: CallbackQuery):
         await callback.answer("⚠️ Tranzaksiya topilmadi!", show_alert=True)
         return
 
-
     transaction_type = transaction[0]
-
 
     if transaction_type == 'deposit':
         # Chekni tasdiqlash (verified = TRUE)
@@ -122,9 +120,6 @@ async def approve_receipt(callback: CallbackQuery):
             """,
             (transaction_id, user_id)
         )
-        cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-        user_balance = cursor.fetchone()
-        user_balance = user_balance[0] if user_balance else 0 
         conn.commit()
         conn.close()
 
@@ -142,12 +137,9 @@ async def approve_receipt(callback: CallbackQuery):
         await userBot.send_message(user_id, (
             f"✅ Sizning to'lovingiz tasdiqlandi\n"
             f"📌 Check ID: {transaction_id}\n"
-            f"💰 Hisobingizda {user_balance:,.0f} so'm\n"
         ))
-    
+
     else:
-        cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-        user_balance = cursor.fetchone()[0]
         conn.commit()
         conn.close()
 
@@ -165,8 +157,8 @@ async def approve_receipt(callback: CallbackQuery):
         await userBot.send_message(user_id, (
             f"✅ Sizning so'rovingiz tasdiqlandi\n"
             f"📌 Tranzaksiya ID: {transaction_id}\n"
-            f"💰 Hisobingizda {user_balance:,.0f} so'm\n"
         ))
+
 
 
 @router.callback_query(lambda c: c.data.startswith("reject_"))
