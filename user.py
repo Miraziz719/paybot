@@ -7,7 +7,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, 
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, \
     ReplyKeyboardRemove, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from admin import admin_transaction_info
@@ -19,7 +19,7 @@ API_TOKEN = os.getenv("USER_API_TOKEN")
 RECEIPT_FOLDER = "receipts"
 CHANNEL_ID = -1002604541411
 CHANNEL_DI = -1002375805009
-bot = Bot(token="7963424980:AAEDEer6GKa3G5k-7nbnGbEEAGqjSn71ID8")
+bot = Bot(token="8014094466:AAHU9-PBzZYzKVHpXx2GVJUOgJiwXZ-n0hE")
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 router = Router()
@@ -57,11 +57,32 @@ def contact_keyboard():
     )
 
 
-async def check_user_membership(user_id: int) -> bool:
+
+
+def start_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="/start")],  # Asosiy menyuga qaytish tugmasi
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+        input_field_placeholder="Asosiy menyu"  # Ko'rsatkich matni
+    )
+
+def check_membership_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+             [InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url="https://t.me/UZB_WINS")],
+            [InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url="https://t.me/+ykoJOOeJ40Y4MjVi")],
+            [InlineKeyboardButton(text="✅ A'zo bo'ldim", callback_data="check_membership")]
+        ]
+    )
+
+async \
+        def check_user_membership(user_id: int) -> bool:
     try:
         channel1 = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
         channel2 = await bot.get_chat_member(chat_id=CHANNEL_DI, user_id=user_id)
-        # Qo'shimcha kanal
 
         return (channel1.status not in ['left', 'kicked'] and
                 channel2.status not in ['left', 'kicked'])
@@ -70,64 +91,32 @@ async def check_user_membership(user_id: int) -> bool:
         return False
 
 
-def start_keyboard():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Menu")],  # Tugma nomini o'zgartirish
-        ],
-        resize_keyboard=True,  # Katta tugmalarni kichraytirish
-        one_time_keyboard=False,  # Tugma doimiy turishi uchun
-        input_field_placeholder="Message"  # Maydon ichida yozuv qo'shish
-    )
-
-def check_membership_keyboard():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url="https://t.me/UZB_WINS")],
-            [InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url="https://t.me/+ykoJOOeJ40Y4MjVi")],
-            [InlineKeyboardButton(text="✅ A'zo bo'ldim", callback_data="check_membership")]
-        ]
-    )
-
-
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
-
-    # user_id = message.from_user.id
-    # username = message.from_user.username
-    # first_name = message.from_user.first_name
-
-    # profile_link1 = f"[@{username}](https://t.me/{username})"
-    # profile_link2 = f"[{first_name}](tg://user?id={user_id})"
-
-    # await message.reply(f"Sizning profil havolangiz: {profile_link1}", parse_mode="Markdown")
-    # await message.reply(f"Sizning profil havolangiz: {profile_link2}", parse_mode="Markdown")
-
-
-
     user_id = message.from_user.id
 
-    # First check channel membership
+    # 1. Kanal a'zoligini tekshirish
     is_member = await check_user_membership(user_id)
-
     if not is_member:
-        await message.answer("🔹 Botdan foydalanish uchun avval kanalga a'zo bo'ling!",
+        await message.answer("🔹 Iltimos, avval kanallarga a'zo bo'ling!",
                              reply_markup=check_membership_keyboard())
         return
 
-    # If user is member, then check if registered
+    # 2. Ro'yxatdan o'tganligini tekshirish
     try:
-        with sqlite3.connect("database.db", check_same_thread=False) as conn:
+        with sqlite3.connect("database.db") as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT phone_number FROM users WHERE user_id = ?", (user_id,))
             user_data = cursor.fetchone()
 
-            if user_data and user_data[0]:  # If user is already registered
-                await message.answer("🏠 Bosh menyu", reply_markup=start_keyboard())
-            else:
+            if user_data and user_data[0]:  # Ro'yxatdan o'tgan
                 await message.answer(
-                    "⚠️ Faqat 🇺🇿 O'zbekiston raqami orqali ro'yxatdan o'tish mumkin!\n\n"
-                    "📞 Telefon raqamingizni yuboring 👇",
+                    "🏠 Bosh menyu:",
+                    reply_markup=main_keyboard()  # Inline keyboardni yuborish
+                )
+            else:  # Ro'yxatdan o'tmagan
+                await message.answer(
+                    "📞 Ro'yxatdan o'tish uchun telefon raqamingizni yuboring:",
                     reply_markup=contact_keyboard()
                 )
                 await state.set_state(PaymentState.phone_number)
@@ -135,8 +124,13 @@ async def cmd_start(message: types.Message, state: FSMContext):
         await message.answer(f"⚠️ Xatolik: {str(e)}")
 
 
+@router.message(F.text == "/start")
+async def start_handler(message: types.Message):
+    # /start bosilganda ham asosiy menyuni ko'rsatish
+    await cmd_start(message, state=None)
+
 @router.callback_query(lambda c: c.data == "check_membership")
-async def recheck_membership_handler(callback: types.CallbackQuery, check_user_membership=None):
+async def recheck_membership_handler(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     await callback.answer()
 
@@ -144,54 +138,34 @@ async def recheck_membership_handler(callback: types.CallbackQuery, check_user_m
         is_member = await check_user_membership(user_id)
 
         if is_member:
-            await callback.message.edit_text(
-                "✅ A'zolik tasdiqlandi! Quyidagi menyudan foydalaning:",
-                reply_markup=main_keyboard()
-            )
+            # Check if user is registered
+            with sqlite3.connect("database.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT phone_number FROM users WHERE user_id = ?", (user_id,))
+                user_data = cursor.fetchone()
+
+            if user_data and user_data[0]:  # If registered
+                await callback.message.edit_text(
+                    "✅ A'zolik tasdiqlandi! Quyidagi menyudan foydalaning:",
+                    reply_markup=main_keyboard()
+                )
+            else:  # If not registered
+                await callback.message.edit_text(
+                    "📞 Ro'yxatdan o'tish uchun telefon raqamingizni yuboring:",
+                    reply_markup=contact_keyboard()
+                )
+                from aiogram.filters import state
+                await state.set_state(PaymentState.phone_number)
         else:
             await callback.message.edit_text(
                 "❌ Hali kanalga a'zo bo'lmagansiz! Iltimos, quyidagi kanallarga a'zo bo'ling:",
                 reply_markup=check_membership_keyboard()
             )
     except Exception as e:
-        from asyncio.log import logger
         logger.error(f"Recheck handlerida xato: {e}")
         await callback.answer("⚠️ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.", show_alert=True)
 
 
-async def check_user_membership(user_id) -> None:
-    pass
-
-
-@router.message(F.text == "Menu")
-async def menu_handler(message: types.Message):
-    user_id = message.from_user.id
-
-    try:
-        # Kanal a'zoligini tekshirish
-        is_member = await check_user_membership (user_id)
-
-        if not is_member:
-            await message.answer(
-                "❌ Botdan foydalanish uchun kanalga a'zo bo'lishingiz kerak!\n\n"
-                "Quyidagi kanallarga a'zo bo'ling va 'A'zo bo'ldim' tugmasini bosing:",
-                reply_markup=check_membership_keyboard()
-            )
-            return
-
-        # Agar a'zo bo'lsa, menyuni ko'rsatish
-        await message.answer(
-            "🏠 Bosh menyu:",
-            reply_markup=main_keyboard()
-        )
-
-    except Exception as e:
-        from asyncio.log import logger
-        logger.error(f"Menu handlerida xato: {e}")
-        await message.answer(
-            "⚠️ A'zolikni tekshirishda xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.",
-            reply_markup=start_keyboard()
-        )
 
 @router.message(PaymentState.phone_number)
 async def process_phone_number(message: types.Message, state: FSMContext):
@@ -225,7 +199,7 @@ async def start_payment(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("📌 ID raqamingizni kiriting (6 ta raqam):")
     await state.set_state(PaymentState.linebet_id)
     await callback.answer()
-    
+
 
 @router.message(PaymentState.linebet_id)
 async def process_id(message: types.Message, state: FSMContext):
@@ -326,7 +300,6 @@ async def process_timeout(message: types.Message, user_id: int, transaction_id: 
                 (transaction_id,)
             )
             conn.commit()
-            
 
         await message.edit_text(
             "⌛️ Chek yuborilmadi! Jarayon bekor qilindi.",
@@ -436,7 +409,7 @@ async def start_withdrawal(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("💸 Yechmoqchi bo'lgan summani kiriting (minimal 25,000 so'm):")
     await state.set_state(PaymentState.withdraw_amount)
     await callback.answer()
-    
+
 
 @router.message(PaymentState.withdraw_amount)
 async def process_withdrawal_amount(message: types.Message, state: FSMContext):
@@ -539,7 +512,6 @@ async def confirm_withdrawal(callback: types.CallbackQuery, state: FSMContext):
             )
             transaction_id = cursor.lastrowid  # Yangi qo‘shilgan transaction_id
             conn.commit()
-            
 
             await callback.message.edit_text(
                 f"✅ {amount:,.0f} so'm hisobingizdan yechildi!\n"
@@ -577,8 +549,3 @@ async def start_user_bot():
     print("Foydalanuvchi bot ishga tushdi!")
 
     await dp.start_polling(bot)
-
-
-
-
-
