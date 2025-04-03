@@ -418,30 +418,15 @@ async def process_withdrawal_amount(message: types.Message, state: FSMContext):
         return
 
     amount = int(message.text)
-    user_id = message.from_user.id
 
     try:
-        with sqlite3.connect("database.db", check_same_thread=False) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-            result = cursor.fetchone()
-
-            if result is None:
-                await message.answer("❌ Foydalanuvchi topilmadi!")
-                return
-
-            balance = result[0]
-
-            if balance < amount:
-                await message.answer("❌ Balansingiz yetarli emas!")
-                return
-
-            await state.update_data(withdraw_amount=amount)
-            await message.answer("📌 ID raqamingizni kiriting (6 ta raqam):")
-            await state.set_state(PaymentState.withdraw_id)
+        await state.update_data(withdraw_amount=amount)
+        await message.answer("📌 ID raqamingizni kiriting (6 ta raqam):")
+        await state.set_state(PaymentState.withdraw_id)
 
     except Exception as e:
         await message.answer(f"⚠️ Xatolik: {str(e)}")
+
 
 
 @router.message(PaymentState.withdraw_id)
