@@ -355,54 +355,47 @@ def save_receipt_path(transaction_id, file_id):
 
 
 # 📌 Rasmni qabul qilish va yo‘lini saqlash
-@router.message(StateFilter(PaymentState.waiting_for_receipt))
-async def receive_receipt(message: types.Message, state: FSMContext):
-    data = await state.get_data()
+@router.message(PaymentState.waiting_for_receipt)
+async def receive_receipt(message: types.Message, state: FSMContext, is_receipt_uploaded=None):
     user_id = message.from_user.id
+    data = await state.get_data()
     transaction_id = data.get("transaction_id")
 
     if not message.photo:
-        await message.answer("🚨 Iltimos, faqat rasm yuboring!")
+        await message.answer("🚨 Iltimos, faqat rasm yoki PDF yuboring!")
         return
 
-    # Foydalanuvchi bir marta rasm jo‘natgan bo‘lsa, qayta jo‘natishga ruxsat bermaymiz
-    if transaction_id is None:
-        await message.answer("🚨 Siz allaqachon chek yuborgansiz!")
+    if is_receipt_uploaded(user_id):
+        await message.answer("🚨 Siz allaqachon chek yuborgansiz! Qayta jo‘natish mumkin emas.")
         return
 
-    # Rasmni saqlash jarayoni
+    # Rasmni saqlash
     photo = message.photo[-1]
     file_info = await bot.get_file(photo.file_id)
-
     file_path = os.path.join(RECEIPT_FOLDER, f"receipt_{transaction_id}.jpg")
+    os.makedirs(RECEIPT_FOLDER, exist_ok=True)
 
     async with aiohttp.ClientSession() as session:
         async with session.get(f"https://api.telegram.org/file/bot{bot.token}/{file_info.file_path}") as resp:
             if resp.status == 200:
                 with open(file_path, "wb") as f:
                     f.write(await resp.read())
+            else:
+                await message.answer("❌ Checkni yuklab olishda xatolik yuz berdi. Qayta urinib ko‘ring.")
+                return
 
-    save_receipt_path(transaction_id, file_path)
+    with sqlite3.connect("database.db", check_same_thread=False) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE transactions SET receipt_path = ?, status = 'completed' WHERE transaction_id = ?",
+                       (file_path, transaction_id))
+        conn.commit()
 
-    try:
-        with sqlite3.connect("database.db", check_same_thread=False) as conn:
-            cursor = conn.cursor()
-            cursor.execute("UPDATE transactions SET status = 'completed' WHERE transaction_id = ?", (transaction_id,))
-            conn.commit()
+    await state.clear()
+    await message.answer(
+        f"✅ Check muvaffaqiyatli qabul qilindi.\nCheck ID: {transaction_id}.\nJavobi 3 ish kuni ichida xabar beriladi."
+    )
 
-        # Foydalanuvchi yana rasm yubora olmasligi uchun state tozalanadi
-        await state.clear()
-
-        await message.answer(
-            f"✅ Check muvaffaqiyatli qabul qilindi.\nCheck ID: {transaction_id}.\n Javobi 3 ish kuni ichida xabar beriladi.",
-            reply_markup=main_keyboard()
-        )
-
-        # ✅ Admin botga xabar yuborish
-        await admin_transaction_info(transaction_id)
-
-    except Exception as e:
-        print(f"Xabar yangilashda xato: {e}")
+    await admin_transaction_info(transaction_id)
 
 
 
