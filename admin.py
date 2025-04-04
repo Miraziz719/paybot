@@ -12,7 +12,7 @@ API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 # ADMIN_ID = 288649486  #Miraziz
 # ADMIN_ID = 6597171902 #Demir
 
-bot = Bot(token=API_TOKEN)
+bot = Bot(token="7631874676:AAH-whAVB3G25vTDI1hUBKok0rwZQP9opiI")
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 router = Router()
