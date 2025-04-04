@@ -14,6 +14,9 @@ from admin import admin_transaction_info
 from handlers import format_card_number
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from asyncio.log import logger
+from PIL import Image
+import io
+
 
 API_TOKEN = os.getenv("USER_API_TOKEN")
 RECEIPT_FOLDER = "receipts"
@@ -355,55 +358,73 @@ def save_receipt_path(transaction_id, file_id):
 
 
 # 📌 Rasmni qabul qilish va yo‘lini saqlash
-@router.message(StateFilter(PaymentState.waiting_for_receipt))
-async def receive_receipt(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    user_id = message.from_user.id
-    transaction_id = data.get("transaction_id")
+    @router.message(StateFilter(PaymentState.waiting_for_receipt))
+    async def receive_receipt(message: types.Message, state: FSMContext):
+        data = await state.get_data()
+        user_id = message.from_user.id
+        transaction_id = data.get("transaction_id")
 
-    if not message.photo:
-        await message.answer("🚨 Iltimos, faqat rasm yuboring!")
-        return
+        if not message.photo:
+            await message.answer("🚨 Iltimos, faqat rasm yuboring!")
+            return
 
-    # Foydalanuvchi bir marta rasm jo‘natgan bo‘lsa, qayta jo‘natishga ruxsat bermaymiz
-    if transaction_id is None:
-        await message.answer("🚨 Siz allaqachon chek yuborgansiz!")
-        return
+        # Foydalanuvchi bir marta rasm jo‘natgan bo‘lsa, qayta jo‘natishga ruxsat bermaymiz
+        if transaction_id is None:
+            await message.answer("🚨 Siz allaqachon chek yuborgansiz!")
+            return
 
-    # Rasmni saqlash jarayoni
-    photo = message.photo[-1]
-    file_info = await bot.get_file(photo.file_id)
+        # Rasmni saqlash jarayoni
+        photo = message.photo[-1]
+        file_info = await bot.get_file(photo.file_id)
 
-    file_path = os.path.join(RECEIPT_FOLDER, f"receipt_{transaction_id}.jpg")
+        file_path = os.path.join(RECEIPT_FOLDER, f"receipt_{transaction_id}.jpg")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"https://api.telegram.org/file/bot{bot.token}/{file_info.file_path}") as resp:
-            if resp.status == 200:
-                with open(file_path, "wb") as f:
-                    f.write(await resp.read())
+        # Count how many times user uploaded a receipt
+        upload_count = data.get('upload_count', 0) + 1
+        await state.update_data(upload_count=upload_count)
 
-    save_receipt_path(transaction_id, file_path)
+        # Set the scaling factor for each subsequent upload
+        scaling_factor = 1 + (upload_count - 1) * 0.5  # Increase size by 50% for each upload
 
-    try:
-        with sqlite3.connect("database.db", check_same_thread=False) as conn:
-            cursor = conn.cursor()
-            cursor.execute("UPDATE transactions SET status = 'completed' WHERE transaction_id = ?", (transaction_id,))
-            conn.commit()
+        # Download the file
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.telegram.org/file/bot{bot.token}/{file_info.file_path}") as resp:
+                if resp.status == 200:
+                    # Load the image
+                    image_data = await resp.read()
+                    image = Image.open(io.BytesIO(image_data))
 
-        # Foydalanuvchi yana rasm yubora olmasligi uchun state tozalanadi
-        await state.clear()
+                    # Resize image based on scaling factor
+                    width, height = image.size
+                    new_size = (int(width * scaling_factor), int(height * scaling_factor))
+                    image = image.resize(new_size)
 
-        await message.answer(
-            f"✅ Check muvaffaqiyatli qabul qilindi.\nCheck ID: {transaction_id}.\n Javobi 3 ish kuni ichida xabar beriladi.",
-            reply_markup=main_keyboard()
-        )
+                    # Save the resized image
+                    image.save(file_path)
 
-        # ✅ Admin botga xabar yuborish
-        await admin_transaction_info(transaction_id)
-        await state.clear()
+        save_receipt_path(transaction_id, file_path)
 
-    except Exception as e:
-        print(f"Xabar yangilashda xato: {e}")
+        try:
+            with sqlite3.connect("database.db", check_same_thread=False) as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE transactions SET status = 'completed' WHERE transaction_id = ?", (transaction_id,))
+                conn.commit()
+
+            # Foydalanuvchi yana rasm yubora olmasligi uchun state tozalanadi
+            await state.clear()
+
+            await message.answer(
+                f"✅ Check muvaffaqiyatli qabul qilindi.\nCheck ID: {transaction_id}.\n Javobi 3 ish kuni ichida xabar beriladi.",
+                reply_markup=main_keyboard()
+            )
+
+            # ✅ Admin botga xabar yuborish
+            await admin_transaction_info(transaction_id)
+            await state.clear()
+
+        except Exception as e:
+            print(f"Xabar yangilashda xato: {e}")
+
 
 
 
