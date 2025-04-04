@@ -73,7 +73,7 @@ async def admin_transaction_info(transaction_id: int):
         f"🔄 *Turi:* `{trx_type}`\n"
         f"📝 *Izoh:* `{details or 'Yo‘q'}`\n"
         f"📅 *Sana:* `{created_at}`\n"
-        f"📞 *phone :* `{phone_number}`\n"
+        f"📞 *phone :* `[{phone_number}](`http://t.me/={phone_number})\n"
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
