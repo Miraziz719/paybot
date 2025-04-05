@@ -14,8 +14,7 @@ from admin import admin_transaction_info
 from handlers import format_card_number
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from asyncio.log import logger
-from PIL import Image
-import io
+
 
 
 API_TOKEN = os.getenv("USER_API_TOKEN")
@@ -58,7 +57,12 @@ def contact_keyboard():
         resize_keyboard=True,
         one_time_keyboard=True
     )
-
+def is_receipt_uploaded(transaction_id: str) -> bool:
+    with sqlite3.connect("database.db", check_same_thread=False) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT receipt_path FROM transactions WHERE transaction_id = ?", (transaction_id,))
+        result = cursor.fetchone()
+        return result is not None and result[0] is not None
 
 
 
