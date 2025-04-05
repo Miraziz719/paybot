@@ -6,11 +6,9 @@ from db import init_db
 from dotenv import load_dotenv
 load_dotenv()
 
-
 # 📂 Rasm saqlanadigan papka
 RECEIPT_FOLDER = "receipts"
 os.makedirs(RECEIPT_FOLDER, exist_ok=True) 
-
 
 async def main():
     init_db()

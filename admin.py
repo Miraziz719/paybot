@@ -7,12 +7,14 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from db import *
+from dotenv import load_dotenv
+load_dotenv()
 
 API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 # ADMIN_ID = 288649486  #Miraziz
 # ADMIN_ID = 6597171902 #Demir
 
-bot = Bot(token="7631874676:AAH-whAVB3G25vTDI1hUBKok0rwZQP9opiI")
+bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 router = Router()
@@ -73,7 +75,7 @@ async def admin_transaction_info(transaction_id: int):
         f"🔄 *Turi:* `{trx_type}`\n"
         f"📝 *Izoh:* `{details or 'Yo‘q'}`\n"
         f"📅 *Sana:* `{created_at}`\n"
-        f"📞 *phone :* `[{phone_number}](`http://t.me/={phone_number})\n"
+        f"📞 *Phone:* {phone_number}\n"
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[

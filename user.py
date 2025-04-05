@@ -14,14 +14,14 @@ from admin import admin_transaction_info
 from handlers import format_card_number
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from asyncio.log import logger
-
-
+from dotenv import load_dotenv
+load_dotenv()
 
 API_TOKEN = os.getenv("USER_API_TOKEN")
 RECEIPT_FOLDER = "receipts"
 CHANNEL_ID = -1002604541411
 CHANNEL_DI = -1002375805009
-bot = Bot(token="8014094466:AAHU9-PBzZYzKVHpXx2GVJUOgJiwXZ-n0hE")
+bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 router = Router()
@@ -48,7 +48,6 @@ def main_keyboard():
     kb.adjust(1)
     return kb.as_markup()
 
-
 def contact_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -57,14 +56,13 @@ def contact_keyboard():
         resize_keyboard=True,
         one_time_keyboard=True
     )
+
 def is_receipt_uploaded(transaction_id: str) -> bool:
     with sqlite3.connect("database.db", check_same_thread=False) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT receipt_path FROM transactions WHERE transaction_id = ?", (transaction_id,))
+        cursor.execute("SELECT receipt_id FROM receipts WHERE transaction_id = ?", (transaction_id,))
         result = cursor.fetchone()
         return result is not None and result[0] is not None
-
-
 
 def start_keyboard():
     return ReplyKeyboardMarkup(
@@ -85,8 +83,7 @@ def check_membership_keyboard():
         ]
     )
 
-async \
-        def check_user_membership(user_id: int) -> bool:
+async def check_user_membership(user_id: int) -> bool:
     try:
         channel1 = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
         channel2 = await bot.get_chat_member(chat_id=CHANNEL_DI, user_id=user_id)
@@ -137,9 +134,8 @@ async def start_handler(message: types.Message):
     await cmd_start(message, state=None)
 
 @router.callback_query(lambda c: c.data == "check_membership")
-async def recheck_membership_handler(callback: types.CallbackQuery):
+async def recheck_membership_handler(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
-    await callback.answer()
 
     try:
         is_member = await check_user_membership(user_id)
@@ -151,27 +147,35 @@ async def recheck_membership_handler(callback: types.CallbackQuery):
                 cursor.execute("SELECT phone_number FROM users WHERE user_id = ?", (user_id,))
                 user_data = cursor.fetchone()
 
-            if user_data and user_data[0]:  # If registered
-                await callback.message.edit_text(
-                    "✅ A'zolik tasdiqlandi! Quyidagi menyudan foydalaning:",
-                    reply_markup=main_keyboard()
-                )
-            else:  # If not registered
-                await callback.message.edit_text(
-                    "📞 Ro'yxatdan o'tish uchun telefon raqamingizni yuboring:",
-                    reply_markup=contact_keyboard()
-                )
-                from aiogram.filters import state
-                await state.set_state(PaymentState.phone_number)
+                if user_data and user_data[0]:  # If registered
+                    await callback.message.edit_text(
+                        "✅ A'zolik tasdiqlandi! Quyidagi menyudan foydalaning:",
+                        reply_markup=main_keyboard()
+                    )
+                else:  # If not registered
+                    await callback.message.delete()
+                    await callback.message.answer(
+                        "📞 Ro'yxatdan o'tish uchun telefon raqamingizni yuboring:",
+                        reply_markup=contact_keyboard()
+                    )
+                    # await callback.message.edit_text(
+                    #     "📞 Ro'yxatdan o'tish uchun telefon raqamingizni yuboring:",
+                    #     reply_markup=contact_keyboard()
+                    # )
+                    await state.set_state(PaymentState.phone_number)
         else:
-            await callback.message.edit_text(
-                "❌ Hali kanalga a'zo bo'lmagansiz! Iltimos, quyidagi kanallarga a'zo bo'ling:",
-                reply_markup=check_membership_keyboard()
-            )
+            current_text = callback.message.text
+            new_text = "❌ Hali kanalga a'zo bo'lmagansiz! Iltimos, quyidagi kanallarga a'zo bo'ling:"
+            if new_text != current_text:
+                await callback.message.edit_text(
+                    new_text,
+                    reply_markup=check_membership_keyboard()
+                )
+        await callback.answer()
+
     except Exception as e:
         logger.error(f"Recheck handlerida xato: {e}")
-        await callback.answer("⚠️ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.", show_alert=True)
-
+        # await callback.answer("⚠️ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.", show_alert=True)
 
 
 @router.message(PaymentState.phone_number)
@@ -193,7 +197,7 @@ async def process_phone_number(message: types.Message, state: FSMContext):
             conn.commit()
 
         await message.answer("✅ Ro'yxatdan o'tdingiz!", reply_markup=ReplyKeyboardRemove())
-        await message.answer("🏠 Bosh menyu", reply_markup=start_keyboard())  # O'zgartirildi
+        await message.answer("🏠 Bosh menyu", reply_markup=main_keyboard())  # O'zgartirildi
         await state.clear()
 
     except Exception as e:
@@ -391,11 +395,19 @@ async def receive_receipt(message: types.Message, state: FSMContext):
                 await message.answer("❌ Checkni yuklab olishda xatolik yuz berdi. Qayta urinib ko‘ring.")
                 return
 
+    save_receipt_path(transaction_id, file_path)
+
     with sqlite3.connect("database.db", check_same_thread=False) as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE transactions SET receipt_path = ?, status = 'completed' WHERE transaction_id = ?",
-                       (file_path, transaction_id))
+        cursor.execute(
+            "UPDATE transactions SET status = 'completed' WHERE transaction_id = ?",
+            (transaction_id,)
+        )
         conn.commit()
+    
+    if user_id in pending_timeouts:
+        pending_timeouts[user_id].cancel()
+        del pending_timeouts[user_id]
 
     await state.clear()
     await message.answer(
