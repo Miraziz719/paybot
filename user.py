@@ -193,7 +193,7 @@ async def process_phone_number(message: types.Message, state: FSMContext):
             conn.commit()
 
         await message.answer("✅ Ro'yxatdan o'tdingiz!", reply_markup=ReplyKeyboardRemove())
-        await message.answer("🏠 Bosh menyu", reply_markup=main_keyboard())  # O'zgartirildi
+        await message.answer("🏠 Bosh menyu", reply_markup=start_keyboard())  # O'zgartirildi
         await state.clear()
 
     except Exception as e:
