@@ -221,14 +221,14 @@ async def process_id(message: types.Message, state: FSMContext):
         await message.answer("❌ ID kamida 6 ta raqam bo'lishi kerak!")
         return
     await state.update_data(linebet_id=message.text)
-    await message.answer("💰 To'lov summasini kiriting (minimal 25,000 so'm):")
+    await message.answer("💰 To'lov summasini kiriting (minimal 25,000 maksimal 10,000,000 so'm):")
     await state.set_state(PaymentState.amount)
 
 
 @router.message(PaymentState.amount)
 async def process_amount(message: types.Message, state: FSMContext):
-    if not message.text.isdigit() or int(message.text) < 25000:
-        await message.answer("❌ Minimal miqdor 25,000 so'm!")
+    if not message.text.isdigit() or int(message.text) < 25000 or int(message.text) > 10000000:
+        await message.answer("❌ Minimal miqdor 25,000 maksimal 10,000,000 so'm!")
         return
 
     data = await state.get_data()
