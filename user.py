@@ -428,15 +428,15 @@ async def receive_receipt(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data == "pul_chiqarish")
 async def start_withdrawal(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("💸 Yechmoqchi bo'lgan summani kiriting (minimal 25,000 so'm):")
+    await callback.message.answer("💸 Yechmoqchi bo'lgan summani kiriting (minimal 25,000 so'm, maksimal 10,000,000):")
     await state.set_state(PaymentState.withdraw_amount)
     await callback.answer()
 
 
 @router.message(PaymentState.withdraw_amount)
 async def process_withdrawal_amount(message: types.Message, state: FSMContext):
-    if not message.text.isdigit() or int(message.text) < 25000:
-        await message.answer("❌ Minimal summa 25,000 so'm!")
+    if not message.text.isdigit() or int(message.text) < 25000 or int(message.text) > 10000000:
+        await message.answer("❌ Minimal summa 25,000 maksimal 10,000,000 so'm!")
         return
 
     amount = int(message.text)

@@ -9,6 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from db import *
 from dotenv import load_dotenv
 load_dotenv()
+from datetime import datetime
 
 API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 # ADMIN_ID = 288649486  #Miraziz
@@ -110,6 +111,7 @@ async def approve_receipt(callback: CallbackQuery):
         return
 
     transaction_type = transaction[0]
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if transaction_type == 'deposit':
         # Chekni tasdiqlash (verified = TRUE)
@@ -126,7 +128,7 @@ async def approve_receipt(callback: CallbackQuery):
         conn.close()
 
         # await callback.answer("✅ Check tasdiqlandi!", show_alert=True)
-        new_caption = callback.message.caption + "\n✅ Tasdiqlandi!"
+        new_caption = callback.message.caption + "\n✅ Tasdiqlandi! " + now
         await bot.edit_message_caption(
             chat_id=callback.message.chat.id,
             message_id=callback.message.message_id,
@@ -146,7 +148,7 @@ async def approve_receipt(callback: CallbackQuery):
         conn.close()
 
         # await callback.answer("✅ Check tasdiqlandi!", show_alert=True)
-        new_text = callback.message.text + "\n✅ Tasdiqlandi!"
+        new_text = callback.message.text + "\n✅ Tasdiqlandi! " + now
         await bot.edit_message_text(
             chat_id=callback.message.chat.id,
             message_id=callback.message.message_id,
@@ -176,6 +178,8 @@ async def reject_receipt(callback: CallbackQuery):
     cursor.execute("SELECT type FROM transactions WHERE transaction_id = ?", (transaction_id,))
     transaction = cursor.fetchone()
 
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     if not transaction:
         await callback.answer("⚠️ Tranzaksiya topilmadi!", show_alert=True)
         return
@@ -189,7 +193,7 @@ async def reject_receipt(callback: CallbackQuery):
         conn.close()
 
         # await callback.answer("❌ Check bekor qilindi!", show_alert=True)
-        new_caption = callback.message.caption + "\n❌ Bekor qilindi!"
+        new_caption = callback.message.caption + f"\n❌ Bekor qilindi! {now}"
         await bot.edit_message_caption(
             chat_id=callback.message.chat.id,
             message_id=callback.message.message_id,
@@ -218,7 +222,7 @@ async def reject_receipt(callback: CallbackQuery):
         conn.close()
 
         # await callback.answer("❌ Check bekor qilindi!", show_alert=True)
-        new_text = callback.message.text + "\n❌ Bekor qilindi!"
+        new_text = callback.message.text + f"\n❌ Bekor qilindi! {now}"
         await bot.edit_message_text(
             chat_id=callback.message.chat.id,
             message_id=callback.message.message_id,
