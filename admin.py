@@ -10,6 +10,7 @@ from db import *
 from dotenv import load_dotenv
 load_dotenv()
 from datetime import datetime
+import pytz
 
 API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 # ADMIN_ID = 288649486  #Miraziz
@@ -69,6 +70,14 @@ async def admin_transaction_info(transaction_id: int):
     transaction_id, user_id, amount, trx_type, status, details, created_at, file_id, verified = transaction
     balance, phone_number = user
 
+    created_at = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
+    utc_zone = pytz.utc
+    created_at_utc = utc_zone.localize(created_at)
+    user_timezone = pytz.timezone('Asia/Tashkent')
+    created_at = created_at_utc.astimezone(user_timezone).strftime("%Y-%m-%d %H:%M:%S")
+
+    # created_at = created_at.strftime("%Y-%m-%d %H:%M:%S")
+    
     caption = (
         f"📌 *Tranzaksiya ID:* `{transaction_id}`\n"
         f"👤 *Foydalanuvchi:* [{user_id}](tg://user?id={user_id})\n"
