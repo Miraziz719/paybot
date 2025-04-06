@@ -5,6 +5,8 @@ from user import start_user_bot
 from db import init_db
 from dotenv import load_dotenv
 load_dotenv()
+import sys
+sys.stdout = open('./botlog.log', 'w')
 
 # 📂 Rasm saqlanadigan papka
 RECEIPT_FOLDER = "receipts"
