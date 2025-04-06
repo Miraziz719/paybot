@@ -197,7 +197,7 @@ async def process_phone_number(message: types.Message, state: FSMContext):
             conn.commit()
 
         await message.answer("✅ Ro'yxatdan o'tdingiz!", reply_markup=ReplyKeyboardRemove())
-        await message.answer("🏠 Bosh menyu", reply_markup=main_keyboard())  # O'zgartirildi
+        await message.answer("🏠 Bosh menyu", reply_markup=start_keyboard())  # O'zgartirildi start tugma menu bolip turadi ----------
         await state.clear()
 
     except Exception as e:
@@ -542,7 +542,7 @@ async def contact_handler(callback: types.CallbackQuery):
         "Savol, shikoyat, takliflar bo`lsa bizga murojaat\n"
             " qilishingiz mumkin ,"
              "adminga yozish👇"
-             "📞 @Upays_bot:\n",
+             "📞 @@upays_team:\n",
         reply_markup=main_keyboard()
     )
     await callback.answer()
