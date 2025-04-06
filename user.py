@@ -549,6 +549,8 @@ async def contact_handler(callback: types.CallbackQuery):
 
 
 async def start_user_bot():
-    print("Foydalanuvchi bot ishga tushdi!")
+    bot_info = await bot.get_me()
+    bot_username = bot_info.username
+    print(f"Foydalanuvchi {bot_username} bot ishga tushdi!")
 
     await dp.start_polling(bot)

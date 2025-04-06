@@ -326,7 +326,9 @@ async def process_card_holder(message: types.Message, state: FSMContext):
 
 
 async def start_admin_bot():
-    print("Admin bot ishga tushdi!")
+    bot_info = await bot.get_me()
+    bot_username = bot_info.username
+    print(f"Admin {bot_username} bot ishga tushdi!")
     await set_commands()
     await dp.start_polling(bot)
 
