@@ -372,8 +372,19 @@ async def receive_receipt(message: types.Message, state: FSMContext):
     data = await state.get_data()
     transaction_id = data.get("transaction_id")
 
-    if not message.photo:
+    if not message.photo and not message.document:
         await message.answer("🚨 Iltimos, faqat rasm yoki PDF yuboring!")
+        return
+
+    # Agar rasm yuborilgan bo'lsa:
+    if message.photo:
+        if len(message.photo) > 1:
+            await message.answer("🚨 Faqat bitta rasm yuboring!")
+            return
+
+    # Agar PDF yuborilgan bo'lsa:
+    if message.document and message.document.mime_type != 'application/pdf':
+        await message.answer("🚨 Iltimos, faqat PDF yuboring!")
         return
 
     if is_receipt_uploaded(user_id):
