@@ -415,7 +415,7 @@ async def receive_receipt(message: types.Message, state: FSMContext):
 
     await state.clear()
     await message.answer(
-        f"✅ Check muvaffaqiyatli qabul qilindi.\nCheck ID: {transaction_id}.\nJavobi 3 ish kuni ichida xabar beriladi."
+        f"✅ Check muvaffaqiyatli qabul qilindi.\nCheck ID: {transaction_id}.\nJavobi 1 minut dan 10 minut gasha ichida xabar beriladi."
     )
 
     await admin_transaction_info(transaction_id)
@@ -525,7 +525,7 @@ async def confirm_withdrawal(callback: types.CallbackQuery, state: FSMContext):
                 f"💰 Hisobingizda {user_balance:,.0f} so'm qoldi\n"
                 f"📌 ID: {withdraw_id}\n"
                 f"📌 Tranzaksiya ID: {transaction_id}\n\n"
-                "Pul tushishi 1-3 ish kunini oladi.",
+                "Pul tushishi 1 soat dan 24 soat gasha boladi.",
                 reply_markup=main_keyboard()
             )
 
@@ -546,7 +546,7 @@ async def contact_handler(callback: types.CallbackQuery):
         "Savol, shikoyat, takliflar bo`lsa bizga murojaat\n"
             " qilishingiz mumkin ,"
              "adminga yozish👇"
-             "📞 @@upays_team:\n",
+             "📞@upays_team:\n",
         reply_markup=main_keyboard()
     )
     await callback.answer()
