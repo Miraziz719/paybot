@@ -13,8 +13,7 @@ from datetime import datetime
 import pytz
 
 API_TOKEN = os.getenv("ADMIN_API_TOKEN")
-# ADMIN_ID = 288649486  #Miraziz
-# ADMIN_ID = 6597171902 #Demir
+
 
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
